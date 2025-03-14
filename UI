@@ -1,0 +1,475 @@
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Theme với phong cách anime nâng cấp
+local theme = {
+    bgGradient = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(80, 40, 180)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(128, 0, 128))
+    }),
+    glowColor = Color3.fromRGB(255, 215, 0),
+    shadowColor = Color3.fromRGB(0, 0, 0),
+    accentColor = Color3.fromRGB(255, 105, 180),
+    animationSpeed = 0.3
+}
+
+-- Utility functions
+local function createInstance(className, parent, properties)
+    local instance = Instance.new(className)
+    if properties then
+        for prop, value in pairs(properties) do
+            instance[prop] = value
+        end
+    end
+    instance.Parent = parent
+    return instance
+end
+
+-- Tạo ScreenGui với các cải tiến
+local screenGui = createInstance("ScreenGui", LocalPlayer.PlayerGui, {
+    Name = "MinimizeGUI",
+    ResetOnSpawn = false,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    IgnoreGuiInset = true
+})
+
+-- Tạo nút minimize với hiệu ứng nâng cao
+local minimizeButton = createInstance("ImageButton", screenGui, {
+    Size = UDim2.new(0, 50, 0, 50),
+    Position = UDim2.new(0, 15, 0, 15),
+    Image = "rbxassetid://91324246097383",
+    BackgroundTransparency = 0.4,
+    AutoButtonColor = false,
+    ZIndex = 2
+})
+
+-- Thêm các thành phần giao diện
+local buttonGradient = createInstance("UIGradient", minimizeButton, {
+    Color = theme.bgGradient,
+    Rotation = 45
+})
+
+local buttonCorner = createInstance("UICorner", minimizeButton, {
+    CornerRadius = UDim.new(0, 12)
+})
+
+local glow = createInstance("UIStroke", minimizeButton, {
+    Thickness = 2.5,
+    Color = theme.glowColor,
+    Transparency = 0.6,
+    ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+})
+
+local shadow = createInstance("ImageLabel", minimizeButton, {
+    Size = UDim2.new(1, 20, 1, 20),
+    Position = UDim2.new(0.5, 0, 0.5, 5),
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    BackgroundTransparency = 1,
+    Image = "rbxasset://textures/ui/Shadow.png",
+    ImageColor3 = theme.shadowColor,
+    ImageTransparency = 0.7,
+    ScaleType = Enum.ScaleType.Slice,
+    ZIndex = 1
+})
+
+-- Animation configurations
+local tweenInfo = TweenInfo.new(
+    theme.animationSpeed,
+    Enum.EasingStyle.Quad,
+    Enum.EasingDirection.Out
+)
+
+-- Dragging functionality
+local dragging, dragInput, dragStart, startPos
+local function updateDrag(input)
+    local delta = input.Position - dragStart
+    local newPos = UDim2.new(
+        startPos.X.Scale,
+        startPos.X.Offset + delta.X,
+        startPos.Y.Scale,
+        startPos.Y.Offset + delta.Y
+    )
+    
+    -- Thêm giới hạn biên
+    local screenSize = screenGui.AbsoluteSize
+    newPos = UDim2.new(
+        0,
+        math.clamp(newPos.X.Offset, 0, screenSize.X - minimizeButton.Size.X.Offset),
+        0,
+        math.clamp(newPos.Y.Offset, 0, screenSize.Y - minimizeButton.Size.Y.Offset)
+    )
+    
+    TweenService:Create(minimizeButton, tweenInfo, {Position = newPos}):Play()
+end
+
+minimizeButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = minimizeButton.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+minimizeButton.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        updateDrag(input)
+    end
+end)
+
+-- Hover effects nâng cao
+local function createHoverEffect()
+    local glowTween = TweenService:Create(glow, tweenInfo, {
+        Thickness = 4,
+        Transparency = 0.3
+    })
+    
+    local shadowTween = TweenService:Create(shadow, tweenInfo, {
+        ImageTransparency = 0.5,
+        Position = UDim2.new(0.5, 0, 0.5, 7)
+    })
+    
+    local buttonTween = TweenService:Create(minimizeButton, tweenInfo, {
+        BackgroundTransparency = 0.2,
+        Size = UDim2.new(0, 55, 0, 55)
+    })
+    
+    return glowTween, shadowTween, buttonTween
+end
+
+local function createLeaveEffect()
+    local glowTween = TweenService:Create(glow, tweenInfo, {
+        Thickness = 2.5,
+        Transparency = 0.6
+    })
+    
+    local shadowTween = TweenService:Create(shadow, tweenInfo, {
+        ImageTransparency = 0.7,
+        Position = UDim2.new(0.5, 0, 0.5, 5)
+    })
+    
+    local buttonTween = TweenService:Create(minimizeButton, tweenInfo, {
+        BackgroundTransparency = 0.4,
+        Size = UDim2.new(0, 50, 0, 50)
+    })
+    
+    return glowTween, shadowTween, buttonTween
+end
+
+minimizeButton.MouseEnter:Connect(function()
+    local glowTween, shadowTween, buttonTween = createHoverEffect()
+    glowTween:Play()
+    shadowTween:Play()
+    buttonTween:Play()
+end)
+
+minimizeButton.MouseLeave:Connect(function()
+    local glowTween, shadowTween, buttonTween = createLeaveEffect()
+    glowTween:Play()
+    shadowTween:Play()
+    buttonTween:Play()
+end)
+
+-- Click effect
+minimizeButton.MouseButton1Down:Connect(function()
+    TweenService:Create(minimizeButton, tweenInfo, {
+        Size = UDim2.new(0, 45, 0, 45)
+    }):Play()
+end)
+
+minimizeButton.MouseButton1Up:Connect(function()
+    local _, _, buttonTween = createHoverEffect()
+    buttonTween:Play()
+end)
+
+-- Export module
+local MinimizeModule = {
+    ScreenGui = screenGui,
+    Button = minimizeButton,
+    Theme = theme,
+    
+    SetImage = function(self, imageId)
+        self.Button.Image = imageId
+    end,
+    
+    SetPosition = function(self, position)
+        TweenService:Create(self.Button, tweenInfo, {Position = position}):Play()
+    end,
+    
+    SetVisible = function(self, visible)
+        self.ScreenGui.Enabled = visible
+    end
+}
+
+local MarketplaceService = game:GetService("MarketplaceService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+
+-- Khởi tạo thư viện với cấu hình mặc định
+local redzlib = {
+    Themes = {
+        Darker = {
+            ["Color Hub 1"] = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 25, 25)),
+                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(32, 32, 32)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 25, 25))
+            }),
+            ["Color Hub 2"] = Color3.fromRGB(30, 30, 30),
+            ["Color Stroke"] = Color3.fromRGB(40, 40, 40),
+            ["Color Theme"] = Color3.fromRGB(88, 101, 242),
+            ["Color Text"] = Color3.fromRGB(243, 243, 243),
+            ["Color Dark Text"] = Color3.fromRGB(180, 180, 180)
+        },
+        -- Các theme khác giữ nguyên để code ngắn gọn
+    },
+    Info = { Version = "1.2.0" },
+    Save = { UISize = {550, 380}, TabSize = 160, Theme = "Darker" },
+    Settings = { AnimationSpeed = 0.25 },
+    Connections = {},
+    Instances = {},
+    Elements = {},
+    Options = {},
+    Flags = {},
+    Tabs = {},
+    Icons = loadstring(game:HttpGet("https://raw.githubusercontent.com/Huyyhere11/X/refs/heads/main/Icon"))()
+}
+
+-- Utility Functions
+local function createInstance(className, parent, props)
+    local instance = Instance.new(className)
+    if props then
+        for k, v in pairs(props) do
+            instance[k] = v
+        end
+    end
+    instance.Parent = parent
+    return instance
+end
+
+local function tweenObject(obj, props, speed)
+    speed = speed or redzlib.Settings.AnimationSpeed
+    local tween = TweenService:Create(obj, TweenInfo.new(speed, Enum.EasingStyle.Quad), props)
+    tween:Play()
+    return tween
+end
+
+-- Theme Management
+local currentTheme = redzlib.Themes[redzlib.Save.Theme]
+local function updateTheme()
+    for _, item in pairs(redzlib.Instances) do
+        local inst, type = item.Instance, item.Type
+        if type == "Gradient" then inst.Color = currentTheme["Color Hub 1"]
+        elseif type == "Frame" then inst.BackgroundColor3 = currentTheme["Color Hub 2"]
+        elseif type == "Stroke" then inst.Color = currentTheme["Color Stroke"]
+        elseif type == "Theme" then inst.BackgroundColor3 = currentTheme["Color Theme"]
+        elseif type == "Text" then inst.TextColor3 = currentTheme["Color Text"]
+        elseif type == "DarkText" then inst.TextColor3 = currentTheme["Color Dark Text"]
+        end
+    end
+end
+
+function redzlib:SetTheme(themeName)
+    if not redzlib.Themes[themeName] then return end
+    redzlib.Save.Theme = themeName
+    currentTheme = redzlib.Themes[themeName]
+    updateTheme()
+    if writefile then
+        writefile("redzlib_config.json", HttpService:JSONEncode(redzlib.Save))
+    end
+end
+
+-- Window Creation
+function redzlib:MakeWindow(config)
+    local title = config.Name or "Redz UI"
+    local subtitle = config.SubTitle or "Advanced UI System"
+    local saveFile = config.SaveFile or "redzlib_config.json"
+
+    -- Tải cấu hình đã lưu
+    if isfile and readfile and isfile(saveFile) then
+        local success, data = pcall(function()
+            return HttpService:JSONDecode(readfile(saveFile))
+        end)
+        if success then redzlib.Save = data end
+    end
+
+    local screenGui = createInstance("ScreenGui", CoreGui, {
+        Name = "RedzUI",
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    })
+
+    local mainFrame = createInstance("Frame", screenGui, {
+        Size = UDim2.new(0, redzlib.Save.UISize[1], 0, redzlib.Save.UISize[2]),
+        Position = UDim2.new(0.5, -redzlib.Save.UISize[1]/2, 0.5, -redzlib.Save.UISize[2]/2),
+        BackgroundTransparency = 0.1,
+        Active = true,
+        Draggable = true
+    })
+    table.insert(redzlib.Instances, {Instance = mainFrame, Type = "Frame"})
+    
+    createInstance("UIGradient", mainFrame, {Color = currentTheme["Color Hub 1"]})
+    createInstance("UICorner", mainFrame, {CornerRadius = UDim.new(0, 8)})
+
+    -- Top Bar
+    local topBar = createInstance("Frame", mainFrame, {
+        Size = UDim2.new(1, 0, 0, 30),
+        BackgroundTransparency = 1
+    })
+
+    local titleLabel = createInstance("TextLabel", topBar, {
+        Position = UDim2.new(0, 10, 0.5, 0),
+        AnchorPoint = Vector2.new(0, 0.5),
+        Size = UDim2.new(0.7, 0, 0, 20),
+        Text = title,
+        TextColor3 = currentTheme["Color Text"],
+        Font = Enum.Font.GothamBold,
+        TextSize = 14,
+        BackgroundTransparency = 1,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    table.insert(redzlib.Instances, {Instance = titleLabel, Type = "Text"})
+
+    -- Control Buttons
+    local closeBtn = createInstance("TextButton", topBar, {
+        Size = UDim2.new(0, 24, 0, 24),
+        Position = UDim2.new(1, -10, 0.5, 0),
+        AnchorPoint = Vector2.new(1, 0.5),
+        Text = "×",
+        TextColor3 = currentTheme["Color Text"],
+        BackgroundColor3 = currentTheme["Color Hub 2"],
+        Font = Enum.Font.GothamBold,
+        TextSize = 16
+    })
+    createInstance("UICorner", closeBtn, {CornerRadius = UDim.new(0, 4)})
+
+    local minimizeBtn = createInstance("TextButton", topBar, {
+        Size = UDim2.new(0, 24, 0, 24),
+        Position = UDim2.new(1, -40, 0.5, 0),
+        AnchorPoint = Vector2.new(1, 0.5),
+        Text = "−",
+        TextColor3 = currentTheme["Color Text"],
+        BackgroundColor3 = currentTheme["Color Hub 2"],
+        Font = Enum.Font.GothamBold,
+        TextSize = 16
+    })
+    createInstance("UICorner", minimizeBtn, {CornerRadius = UDim.new(0, 4)})
+
+    -- Tab System
+    local tabScroll = createInstance("ScrollingFrame", mainFrame, {
+        Size = UDim2.new(0, redzlib.Save.TabSize, 1, -30),
+        Position = UDim2.new(0, 0, 0, 30),
+        BackgroundTransparency = 1,
+        ScrollBarThickness = 2,
+        ScrollBarImageColor3 = currentTheme["Color Theme"],
+        AutomaticCanvasSize = Enum.AutomaticSize.Y
+    })
+    createInstance("UIListLayout", tabScroll, {Padding = UDim.new(0, 5)})
+    createInstance("UIPadding", tabScroll, {PaddingTop = UDim.new(0, 5)})
+
+    local contentFrame = createInstance("Frame", mainFrame, {
+        Size = UDim2.new(1, -redzlib.Save.TabSize, 1, -30),
+        Position = UDim2.new(0, redzlib.Save.TabSize, 0, 30),
+        BackgroundTransparency = 1,
+        ClipsDescendants = true
+    })
+
+    -- Window API
+    local window = {}
+    local currentTab = nil
+    local isMinimized = false
+
+    function window:Minimize()
+        if isMinimized then
+            tweenObject(mainFrame, {Size = UDim2.new(0, redzlib.Save.UISize[1], 0, redzlib.Save.UISize[2])})
+            minimizeBtn.Text = "−"
+        else
+            redzlib.Save.UISize = {mainFrame.Size.X.Offset, mainFrame.Size.Y.Offset}
+            tweenObject(mainFrame, {Size = UDim2.new(0, redzlib.Save.UISize[1], 0, 30)})
+            minimizeBtn.Text = "+"
+        end
+        isMinimized = not isMinimized
+    end
+
+    function window:Close()
+        screenGui:Destroy()
+    end
+
+    function window:AddTab(config)
+        local tabName = config.Name or "Tab"
+        local tabIcon = redzlib:GetIcon(config.Icon or "")
+
+        local tabButton = createInstance("TextButton", tabScroll, {
+            Size = UDim2.new(1, -10, 0, 30),
+            Text = tabName,
+            TextColor3 = currentTheme["Color Text"],
+            BackgroundColor3 = currentTheme["Color Hub 2"],
+            Font = Enum.Font.GothamMedium,
+            TextSize = 12,
+            BackgroundTransparency = 0.2
+        })
+        createInstance("UICorner", tabButton, {CornerRadius = UDim.new(0, 6)})
+
+        local tabContent = createInstance("ScrollingFrame", contentFrame, {
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            ScrollBarThickness = 2,
+            ScrollBarImageColor3 = currentTheme["Color Theme"],
+            AutomaticCanvasSize = Enum.AutomaticSize.Y,
+            Visible = false
+        })
+        createInstance("UIListLayout", tabContent, {Padding = UDim.new(0, 5)})
+        createInstance("UIPadding", tabContent, {PaddingTop = UDim.new(0, 5)})
+
+        local tab = {}
+        function tab:Activate()
+            if currentTab then currentTab.Content.Visible = false end
+            tabContent.Visible = true
+            currentTab = tab
+            tweenObject(tabButton, {BackgroundTransparency = 0})
+        end
+
+        function tab:Deactivate()
+            tabContent.Visible = false
+            tweenObject(tabButton, {BackgroundTransparency = 0.2})
+        end
+
+        tab.Content = tabContent
+        tabButton.MouseButton1Click:Connect(function() tab:Activate() end)
+        
+        if not currentTab then tab:Activate() end
+        table.insert(redzlib.Tabs, tab)
+        return tab
+    end
+
+    -- Button Events
+    closeBtn.MouseButton1Click:Connect(function() window:Close() end)
+    minimizeBtn.MouseButton1Click:Connect(function() window:Minimize() end)
+
+    return window
+end
+
+-- Icon Handling
+function redzlib:GetIcon(name)
+    if not name or name:find("rbxassetid://") then return name end
+    name = name:lower():gsub("lucide", ""):gsub("-", "")
+    return redzlib.Icons[name] or name
+end
+
+return redzlib
