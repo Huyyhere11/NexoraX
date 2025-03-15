@@ -1,19 +1,80 @@
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+local PlayerGui = Player.PlayerGui
 
--- Minimize GUI
-local gui = Instance.new("Frame")
-gui.Name = "MinimizeGUI"
-gui.Parent = screenGui
-gui.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-gui.BackgroundTransparency = 1
-gui.Size = UDim2.new(0, 200, 0, 200)
-gui.Position = UDim2.new(0, 10, 0, 60)
-local guiGradient = Instance.new("UIGradient")
-guiGradient.Color = theme.bgGradient
-guiGradient.Parent = gui
-local guiCorner = Instance.new("UICorner")
-guiCorner.CornerRadius = UDim.new(0, 10)
-guiCorner.Parent = gui
+-- Theme với phong cách anime
+local theme = {
+    bgGradient = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 120, 255)), -- Xanh dương
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(128, 0, 128))  -- Tím
+    }),
+    glowColor = Color3.fromRGB(255, 215, 0) -- Glow vàng
+}
 
+-- Tạo ScreenGui cho nút minimize
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "MinimizeGUI"
+screenGui.Parent = PlayerGui
+
+-- Tạo nút minimize
+local minimizeButton = Instance.new("ImageButton")
+minimizeButton.Parent = screenGui
+minimizeButton.Size = UDim2.new(0, 40, 0, 40)
+minimizeButton.Position = UDim2.new(0, 10, 0, 10)
+minimizeButton.Image = "rbxassetid://91324246097383" -- Thay bằng ID logo của bạn
+minimizeButton.BackgroundTransparency = 0.5
+local buttonGradient = Instance.new("UIGradient")
+buttonGradient.Color = theme.bgGradient
+buttonGradient.Parent = minimizeButton
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(0, 10)
+buttonCorner.Parent = minimizeButton
+
+local glow = Instance.new("UIStroke")
+glow.Parent = minimizeButton
+glow.Thickness = 2
+glow.Color = theme.glowColor
+glow.Transparency = 0.7
+
+-- Kéo thả nút minimize
+local dragging = false
+local dragInput, dragStart, startPos
+minimizeButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = minimizeButton.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+minimizeButton.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        minimizeButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- Hiệu ứng glow khi hover
+minimizeButton.MouseEnter:Connect(function()
+    TweenService:Create(glow, TweenInfo.new(0.2), {Thickness = 3, Transparency = 0.5}):Play()
+end)
+minimizeButton.MouseLeave:Connect(function()
+    TweenService:Create(glow, TweenInfo.new(0.2), {Thickness = 2, Transparency = 0.7}):Play()
+end)
+
+-- Load redzlib (dán toàn bộ code redzlib của bạn vào đây)
+local redzlib = 
 local MarketplaceService = game:GetService("MarketplaceService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -1894,3 +1955,50 @@ function redzlib:MakeWindow(Configs)
 end
 
 return redzlib
+
+
+-- Tạo window với redzlib
+local Window = redzlib:MakeWindow({
+    Name = "Anime UI",
+    SubTitle = "by Grok",
+    SaveFolder = "anime_ui_config.json"
+})
+
+-- Liên kết nút minimize với window
+local hubGui = PlayerGui:WaitForChild("redz Library V5")
+local mainFrame = hubGui:WaitForChild("Hub")
+
+-- Hàm toggle hub (ẩn/hiện hub)
+local function toggleHub()
+    Window:Minimize() -- Gọi hàm minimize của redzlib để ẩn/hiện hub
+    minimizeButton.Visible = not mainFrame.Visible -- Cập nhật trạng thái nút minimize
+end
+
+-- Kích hoạt nút minimize
+minimizeButton.Activated:Connect(toggleHub)
+
+-- Theo dõi trạng thái hub để cập nhật nút minimize
+mainFrame:GetPropertyChangedSignal("Visible"):Connect(function()
+    minimizeButton.Visible = not mainFrame.Visible
+end)
+
+-- Ban đầu ẩn nút minimize nếu hub đang hiển thị
+minimizeButton.Visible = not mainFrame.Visible
+
+-- Xóa nút minimize khi hub bị đóng hoàn toàn
+hubGui:GetPropertyChangedSignal("Parent"):Connect(function()
+    if not hubGui.Parent then -- Nếu hubGui bị xóa (hub bị đóng)
+        if screenGui then
+            screenGui:Destroy() -- Xóa ScreenGui chứa nút minimize
+        end
+    end
+end)
+
+-- Ghi đè hàm CloseBtn để xóa nút minimize khi đóng hub
+local originalCloseFunc = Window.CloseBtn
+Window.CloseBtn = function()
+    originalCloseFunc() -- Gọi hàm đóng mặc định của redzlib
+    if screenGui then
+        screenGui:Destroy() -- Đảm bảo xóa nút minimize khi đóng hub
+    end
+end
